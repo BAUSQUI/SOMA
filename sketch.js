@@ -133,7 +133,7 @@ class Broche {
     this.dragging = false;
     this.letra = letra;
     this.r = 30;
-    this.sound = loadSound('assets/paper.wav'); // Sonido individual
+    this.sound = loadSound('paper.wav'); // Sonido individual
     this.sound.setLoop(true); // Loop continuo mientras se arrastra
   }
 
