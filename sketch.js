@@ -12,16 +12,11 @@ let radiusLerpAmt = 0.1;
 let minDistance = 80;
 let fontSizeSlider;
 let shouldExpand = false;
-let paperSound;
-let soundPlaying = false; // 🔴 Nueva variable para controlar el estado del sonido
-
-function preload() {
-  paperSound = loadSound('paper.wav');
-  paperSound.loop(false); // 🔴 Desactivar loop automático
-}
 
 function setup() {
   createCanvas(600, 600);
+  userStartAudio(); // Requerido para activar audio en navegadores modernos
+  
   frameRate(10);
   fontSizeSlider = createSlider(20, 80, 48, 1);
   fontSizeSlider.position(10, height + 40);
@@ -30,6 +25,7 @@ function setup() {
   textFont('Helvetica Light');
   noiseDetail(3, 0.5);
 
+  // Crear puntos iniciales del borde
   let totalPoints = 100;
   for (let i = 0; i < totalPoints; i++) {
     let angle = map(i, 0, totalPoints, 0, TWO_PI);
@@ -43,12 +39,14 @@ function setup() {
 function draw() {
   background(0);
 
+  // Expansión del círculo blanco
   if (shouldExpand) {
     liquidRadius = lerp(liquidRadius, targetRadius, radiusLerpAmt);
   }
 
   let dynamicRadius = liquidRadius * (fontSizeSlider.value() / 48);
 
+  // Deformar puntos por broches
   let deformedPoints = [];
   for (let i = 0; i < points.length; i++) {
     let angle = map(i, 0, points.length, 0, TWO_PI);
@@ -69,6 +67,7 @@ function draw() {
     deformedPoints.push(deformedP);
   }
 
+  // Dibujar forma blanca central
   fill(255);
   noStroke();
   beginShape();
@@ -79,30 +78,24 @@ function draw() {
   }
   endShape(CLOSE);
 
+  // Actualizar y mostrar broches
   for (let b of broches) {
     b.update();
     b.display(fontSizeSlider.value());
-    
-    // 🔴 Detener sonido si ya no se está arrastrando pero el sonido sigue
-    if (!b.dragging && soundPlaying) {
-      paperSound.stop();
-      soundPlaying = false;
-    }
   }
 }
 
 function mousePressed() {
+  // Verificar clic en broche existente
   for (let b of broches) {
     if (b.isMouseOver(fontSizeSlider.value())) {
       b.dragging = true;
-      if (!soundPlaying) { // 🔴 Solo reproducir si no está sonando
-        paperSound.play();
-        soundPlaying = true;
-      }
+      b.playSound(); // Reproducir sonido al arrastrar
       return;
     }
   }
 
+  // Crear nuevo broche
   let dynamicRadius = liquidRadius * (fontSizeSlider.value() / 48);
   if (dist(mouseX, mouseY, width / 2, height / 2) < dynamicRadius * 0.8) {
     let canPlace = true;
@@ -119,11 +112,9 @@ function mousePressed() {
       }
       let letra = letras[letraIndex];
       letraIndex = (letraIndex + 1) % letras.length;
-      broches.push(new Broche(mouseX, mouseY, letra));
-      if (!soundPlaying) { // 🔴 Reproducir solo si no está sonando
-        paperSound.play();
-        soundPlaying = true;
-      }
+      let nuevoBroche = new Broche(mouseX, mouseY, letra);
+      broches.push(nuevoBroche);
+      nuevoBroche.playSound(); // Reproducir sonido al colocar
     }
   }
 }
@@ -131,10 +122,7 @@ function mousePressed() {
 function mouseReleased() {
   for (let b of broches) {
     b.dragging = false;
-  }
-  if (soundPlaying) { // 🔴 Detener sonido al soltar
-    paperSound.stop();
-    soundPlaying = false;
+    b.stopSound(); // Detener sonido al soltar
   }
 }
 
@@ -145,6 +133,20 @@ class Broche {
     this.dragging = false;
     this.letra = letra;
     this.r = 30;
+    this.sound = loadSound('assets/paper.wav'); // Sonido individual
+    this.sound.setLoop(true); // Loop continuo mientras se arrastra
+  }
+
+  playSound() {
+    if (!this.sound.isPlaying()) {
+      this.sound.play();
+    }
+  }
+
+  stopSound() {
+    if (this.sound.isPlaying()) {
+      this.sound.stop();
+    }
   }
 
   update() {
@@ -153,6 +155,7 @@ class Broche {
     }
     this.pos.lerp(this.target, 0.15);
 
+    // Mantener dentro del área
     let dynamicRadius = liquidRadius * (fontSizeSlider.value() / 48);
     let centerDist = dist(this.pos.x, this.pos.y, width / 2, height / 2);
     if (centerDist > dynamicRadius * 0.9) {
